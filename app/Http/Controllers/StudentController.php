@@ -5,6 +5,12 @@ namespace App\Http\Controllers;
 use App\Student;
 use Illuminate\Http\Request;
 
+//Importação da Request
+use App\Http\Requests\CreateStudent;
+
+//Importação de métodos de Storage (no caso, da foto de perfil)
+use Illuminate\Support\Facades\Storage;
+
 class StudentController extends Controller
 {
     /**
@@ -25,7 +31,7 @@ class StudentController extends Controller
      * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\Response
      */
-    public function store(Request $request)
+    public function store(CreateStudent $request)
     {
         $newStudent = new Student;
 
@@ -35,7 +41,19 @@ class StudentController extends Controller
         $newStudent->cpf = $request->cpf;
         $newStudent->telefone = $request->telefone;
 
+        if (!Storage::exists('localDocuments/'))
+        {
+            Storage::makeDirectory('localDocuments/', 0775, true);
+        }
+
+        $document = base64_decode($request->boletim);
+        $docName = uniqid().'.pdf';
+        $path = storage_path('/app/localDocuments/'.$docName);
+        file_put_contents($path,$document);
+        $newStudent->boletim = $docName;
+
         $newStudent->save();
+        return response()->json('Estudante criado com sucesso!');
     }
 
     /**
@@ -46,7 +64,7 @@ class StudentController extends Controller
      */
     public function show(Student $student)
     {
-        return response()->json($student);
+        return response()->json('Estudante: '.$student);
     }
 
     /**
@@ -56,8 +74,24 @@ class StudentController extends Controller
      * @param  \App\Student  $student
      * @return \Illuminate\Http\Response
      */
-    public function update(Request $request, Student $student)
+    public function update(CreateStudent $request, Student $student)
     {
+        if($request->boletim){
+            Storage::delete('localDocuments/'.$student->boletim);
+            if (!Storage::exists('localDocuments/'))
+            {
+                Storage::makeDirectory('localDocuments/', 0775, true);
+            }
+
+            $document = base64_decode($request->boletim);
+            $docName = uniqid().'.pdf';
+            $path = storage_path('/app/localDocuments/'.$docName);
+            file_put_contents($path,$document);
+            $newStudent->boletim = $docName;
+
+            $newStudent->save();
+            return response()->json('Estudante criado com sucesso!');
+        }
         if($request->nome){
           $student->nome = $request->nome;
         }
@@ -75,6 +109,7 @@ class StudentController extends Controller
         }
 
         $student->save();
+        return response()->json('Estudante atualizado com sucesso!');
     }
 
     /**
@@ -85,6 +120,8 @@ class StudentController extends Controller
      */
     public function destroy(Student $student)
     {
+        Storage::delete('localDocuments/'.$student->doc);
         Student::destroy($student->id);
+        return response()->json('Estudante deletado com sucesso!');
     }
 }
